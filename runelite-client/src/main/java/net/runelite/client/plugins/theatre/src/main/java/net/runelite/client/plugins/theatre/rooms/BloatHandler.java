@@ -189,7 +189,11 @@ public class BloatHandler extends RoomHandler
 		{
 			bloatTimer++;
 			counter = 0;
+<<<<<<< HEAD
 			if (bloat.getHealthScale() == 0)
+=======
+			if (bloat.getHealth() == 0)
+>>>>>>> back to it?
 			{
 				bloatState = BloatState.DOWN;
 			}
