@@ -118,7 +118,6 @@ public class ExternalPluginManager
 	private final Groups groups;
 	@Getter(AccessLevel.PUBLIC)
 	private UpdateManager updateManager;
-	private Map<String, PluginInfo.PluginRelease> lastPluginRelease = new HashMap<>();
 	private Set<PluginType> pluginTypes = Set.of(PluginType.values());
 
 	@Inject
@@ -425,11 +424,6 @@ public class ExternalPluginManager
 		externalPluginManager.setSystemVersion(SYSTEM_VERSION);
 	}
 
-	public boolean developmentMode()
-	{
-		return externalPluginManager.isDevelopment();
-	}
-
 	public boolean doesGhRepoExist(String owner, String name)
 	{
 		return doesRepoExist("gh:" + owner + "/" + name);
@@ -506,6 +500,7 @@ public class ExternalPluginManager
 	{
 		if (!tryLoadNewFormat())
 		{
+			log.debug("Load new format failed.");
 			loadOldFormat();
 		}
 
@@ -517,11 +512,14 @@ public class ExternalPluginManager
 	{
 		try
 		{
+			duplicateCheck();
+			log.debug("Trying to load new format: {}", openOSRSConfig.getExternalRepositories());
 			for (String keyval : openOSRSConfig.getExternalRepositories().split(";"))
 			{
 				String[] split = keyval.split("\\|");
 				if (split.length != 2)
 				{
+					log.debug("Split length invalid.");
 					repositories.clear();
 					return false;
 				}
@@ -548,6 +546,7 @@ public class ExternalPluginManager
 		}
 		catch (ArrayIndexOutOfBoundsException | MalformedURLException e)
 		{
+			log.error("Error in new format", e);
 			repositories.clear();
 			return false;
 		}
@@ -558,14 +557,18 @@ public class ExternalPluginManager
 	{
 		try
 		{
+			log.debug("Loading old format.");
 			repositories.clear();
 
 			for (String keyval : openOSRSConfig.getExternalRepositories().split(";"))
 			{
+				log.debug("KeyVal: {}", keyval);
 				String id = keyval.substring(0, keyval.lastIndexOf(":https"));
 				String url = keyval.substring(keyval.lastIndexOf("https"));
 
-				repositories.add(new DefaultUpdateRepository(id, new URL(url)));
+				DefaultUpdateRepository defaultRepo = new DefaultUpdateRepository(id, new URL(url));
+				repositories.add(defaultRepo);
+				log.debug("Added Repo: {}", defaultRepo.getUrl());
 			}
 		}
 		catch (MalformedURLException e)
@@ -620,8 +623,58 @@ public class ExternalPluginManager
 			config.append(";");
 		}
 		config.deleteCharAt(config.lastIndexOf(";"));
-
 		openOSRSConfig.setExternalRepositories(config.toString());
+	}
+
+
+	/**
+	 * This method is a fail safe to ensure that no duplicate
+	 * repositories end up getting saved to the config.
+	 * <p>
+	 * Configs that had duplicate repos prior to this should
+	 * be updated and set correctly.
+	 */
+	private void duplicateCheck()
+	{
+		String[] split = openOSRSConfig.getExternalRepositories().split(";");
+
+		if (split.length <= 0)
+		{
+			return;
+		}
+
+		Set<String> strings = new HashSet<>();
+		boolean duplicates = false;
+
+		for (String s : split)
+		{
+			if (strings.contains(s))
+			{
+				log.error("Duplicate Repo: {}", s);
+				duplicates = true;
+				continue;
+			}
+			strings.add(s);
+		}
+
+		if (duplicates)
+		{
+			StringBuilder sb = new StringBuilder();
+
+			for (String string : strings)
+			{
+				sb.append(string);
+				sb.append(";");
+			}
+
+			sb.deleteCharAt(sb.lastIndexOf(";"));
+			String duplicateFix = sb.toString();
+
+			log.info("Duplicate Repos detected, setting them to: {}", duplicateFix);
+			openOSRSConfig.setExternalRepositories(duplicateFix);
+			return;
+		}
+		log.info("No duplicates found.");
 	}
 
 	private void scanAndInstantiate(List<Plugin> plugins, boolean init, boolean initConfig)
@@ -874,30 +927,13 @@ public class ExternalPluginManager
 			pluginsInfoMap.remove(plugin.getClass().getSimpleName());
 
 			AtomicReference<String> support = new AtomicReference<>("");
-			AtomicReference<String> version = new AtomicReference<>("");
 
 			updateManager.getRepositories().forEach(repository ->
-				repository.getPlugins().forEach((key, value) -> {
+				repository.getPlugins().forEach((key, value) ->
+				{
 					if (key.equals(pluginId))
 					{
 						support.set(value.projectUrl);
-
-						for (PluginInfo.PluginRelease release : value.releases)
-						{
-							if (externalPluginManager.getSystemVersion().equals("0.0.0") || externalPluginManager.getVersionManager().checkVersionConstraint(externalPluginManager.getSystemVersion(), release.requires))
-							{
-								if (lastPluginRelease.get(pluginId) == null)
-								{
-									lastPluginRelease.put(pluginId, release);
-								}
-								else if (externalPluginManager.getVersionManager().compareVersions(release.version, lastPluginRelease.get(pluginId).version) > 0)
-								{
-									lastPluginRelease.put(pluginId, release);
-								}
-							}
-						}
-
-						version.set(lastPluginRelease.get(pluginId).version);
 					}
 				}));
 
@@ -905,7 +941,7 @@ public class ExternalPluginManager
 				plugin.getClass().getSimpleName(),
 				new HashMap<>()
 				{{
-					put("version", version.get());
+					put("version", externalPluginManager.getPlugin(pluginId).getDescriptor().getVersion());
 					put("id", externalPluginManager.getPlugin(pluginId).getDescriptor().getPluginId());
 					put("provider", externalPluginManager.getPlugin(pluginId).getDescriptor().getProvider());
 					put("support", support.get());
