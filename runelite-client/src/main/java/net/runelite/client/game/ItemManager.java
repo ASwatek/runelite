@@ -276,6 +276,13 @@ public class ItemManager
 			return 1000;
 		}
 
+		ItemDefinition itemComposition = getItemDefinition(itemID);
+		if (itemComposition.getNote() != -1)
+		{
+			itemID = itemComposition.getLinkedNoteId();
+		}
+		itemID = WORN_ITEMS.getOrDefault(itemID, itemID);
+
 		if (!ignoreUntradeableMap)
 		{
 			UntradeableItemMapping p = UntradeableItemMapping.map(ItemVariationMapping.map(itemID));
