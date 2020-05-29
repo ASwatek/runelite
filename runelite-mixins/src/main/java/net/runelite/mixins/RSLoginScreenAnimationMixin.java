@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, Adam <Adam@sigterm.info>
+ * Copyright (c) 2020, Owain van Brakel <https://github.com/Owain94>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -22,56 +22,33 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package net.runelite.client.ui.overlay.infobox;
+package net.runelite.mixins;
 
-import java.awt.Color;
-import java.awt.image.BufferedImage;
-import javax.annotation.Nonnull;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.Setter;
-import net.runelite.client.plugins.Plugin;
+import net.runelite.api.mixins.Copy;
+import net.runelite.api.mixins.Mixin;
+import net.runelite.api.mixins.Replace;
+import net.runelite.api.mixins.Shadow;
+import net.runelite.rs.api.RSClient;
+import net.runelite.rs.api.RSLoginScreenAnimation;
 
-public abstract class InfoBox
+@Mixin(RSLoginScreenAnimation.class)
+public abstract class RSLoginScreenAnimationMixin implements RSLoginScreenAnimation
 {
-	@Nonnull
-	@Getter(AccessLevel.PACKAGE)
-	private final Plugin plugin;
+	@Shadow("client")
+	private static RSClient client;
 
-	@Getter
-	@Setter
-	private BufferedImage image;
-
-	@Getter(AccessLevel.PACKAGE)
-	@Setter(AccessLevel.PACKAGE)
-	private BufferedImage scaledImage;
-
-	@Getter(AccessLevel.PACKAGE)
-	@Setter
-	private InfoBoxPriority priority;
-
-	@Getter
-	@Setter
-	private String tooltip;
-
-	public InfoBox(BufferedImage image, @Nonnull Plugin plugin)
+	@Copy("draw")
+	void rs$draw(int var1, int var2)
 	{
-		this.plugin = plugin;
-		setImage(image);
-		setPriority(InfoBoxPriority.NONE);
+		throw new RuntimeException();
 	}
 
-	public abstract String getText();
-
-	public abstract Color getTextColor();
-
-	public boolean render()
+	@Replace("draw")
+	void rl$draw(int var1, int var2)
 	{
-		return true;
-	}
-
-	public boolean cull()
-	{
-		return false;
+		if (client.shouldRenderLoginScreenFire())
+		{
+			rs$draw(var1, var2);
+		}
 	}
 }
