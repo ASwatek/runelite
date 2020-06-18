@@ -39,7 +39,7 @@ public class PlayerDespawned implements Event
 	/**
 	 * The despawned player.
 	 */
-	private final Player player;
+	Player player;
 
 	public Actor getActor()
 	{

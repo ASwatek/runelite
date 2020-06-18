@@ -11,6 +11,8 @@ import java.net.URL;
 import java.util.concurrent.ScheduledExecutorService;
 import javax.inject.Inject;
 import javax.swing.ImageIcon;
+import javax.swing.JCheckBox;
+import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -95,6 +97,22 @@ public class ExternalPluginManagerPanel extends PluginPanel
 			@Override
 			public void mousePressed(MouseEvent mouseEvent)
 			{
+				if (externalPluginManager.getWarning())
+				{
+					JCheckBox checkbox = new JCheckBox("Don't show again.");
+					int answer = showWarningDialog(checkbox);
+
+					if (answer == 1)
+					{
+						return;
+					}
+
+					if (checkbox.isSelected())
+					{
+						externalPluginManager.setWarning(false);
+					}
+				}
+
 				JTextField owner = new JTextField();
 				JTextField name = new JTextField();
 				Object[] message = {
@@ -146,6 +164,22 @@ public class ExternalPluginManagerPanel extends PluginPanel
 			@Override
 			public void mousePressed(MouseEvent mouseEvent)
 			{
+				if (externalPluginManager.getWarning())
+				{
+					JCheckBox checkbox = new JCheckBox("Don't show again.");
+					int answer = showWarningDialog(checkbox);
+
+					if (answer == 1)
+					{
+						return;
+					}
+					
+					if (checkbox.isSelected())
+					{
+						externalPluginManager.setWarning(false);
+					}
+				}
+
 				JTextField id = new JTextField();
 				JTextField url = new JTextField();
 				Object[] message = {
@@ -231,6 +265,19 @@ public class ExternalPluginManagerPanel extends PluginPanel
 		mainTabPane.add("Repositories", repositoryPanel);
 
 		return mainTabPane;
+	}
+
+	private int showWarningDialog(JCheckBox checkbox)
+	{
+		Object[] options = {"Okay, I accept the risk", "Never mind, turn back", checkbox};
+		return JOptionPane.showOptionDialog(new JFrame(),
+			"Adding plugins from unverified sources may put your account, or personal information at risk!   \n",
+			"Account security warning",
+			JOptionPane.YES_NO_OPTION,
+			JOptionPane.WARNING_MESSAGE,
+			null,
+			options,
+			options[0]);
 	}
 
 	static JScrollPane wrapContainer(final JPanel container)

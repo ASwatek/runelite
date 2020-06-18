@@ -236,7 +236,7 @@ public interface OpenOSRSConfig extends Config
 	)
 	default Color miscellaneousColor()
 	{
-		return new Color(243,  85,  136, 255);
+		return new Color(243, 85, 136, 255);
 	}
 
 	@Alpha
@@ -359,4 +359,15 @@ public interface OpenOSRSConfig extends Config
 		hidden = true
 	)
 	void setExternalRepositories(String val);
+
+	@ConfigItem(
+		keyName = "warning",
+		name = "",
+		description = "",
+		hidden = true
+	)
+	default boolean warning()
+	{
+		return true;
+	}
 }

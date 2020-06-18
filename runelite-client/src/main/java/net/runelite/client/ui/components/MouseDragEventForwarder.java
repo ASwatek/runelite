@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, trimbe <github.com/trimbe>
+ * Copyright (c) 2020, Shingyx <https://github.com/Shingyx>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -22,16 +22,49 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package net.runelite.api.events;
+package net.runelite.client.ui.components;
 
-import net.runelite.api.ClanMember;
-import lombok.Value;
+import java.awt.Component;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import javax.swing.SwingUtilities;
 
-@Value
-public class ClanMemberJoined implements Event
+/**
+ * Forwards left mouse button drag events to the target Component.
+ */
+public class MouseDragEventForwarder extends MouseAdapter
 {
-	/**
-	 * The ClanMember that joined
-	 */
-	private ClanMember member;
+	private final Component target;
+
+	public MouseDragEventForwarder(Component target)
+	{
+		this.target = target;
+	}
+
+	@Override
+	public void mousePressed(MouseEvent e)
+	{
+		processEvent(e);
+	}
+
+	@Override
+	public void mouseDragged(MouseEvent e)
+	{
+		processEvent(e);
+	}
+
+	@Override
+	public void mouseReleased(MouseEvent e)
+	{
+		processEvent(e);
+	}
+
+	private void processEvent(MouseEvent e)
+	{
+		if (SwingUtilities.isLeftMouseButton(e))
+		{
+			MouseEvent eventForTarget = SwingUtilities.convertMouseEvent((Component) e.getSource(), e, target);
+			target.dispatchEvent(eventForTarget);
+		}
+	}
 }

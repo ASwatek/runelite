@@ -34,7 +34,6 @@ import com.google.common.graph.Graphs;
 import com.google.common.graph.MutableGraph;
 import com.google.common.reflect.ClassPath;
 import com.google.common.reflect.ClassPath.ClassInfo;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.inject.Binder;
 import com.google.inject.CreationException;
 import com.google.inject.Injector;
@@ -54,7 +53,6 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -94,8 +92,10 @@ public class PluginManager
 	 */
 	private static final String PLUGIN_PACKAGE = "net.runelite.client.plugins";
 
+	private final boolean safeMode;
 	private final EventBus eventBus;
 	private final Scheduler scheduler;
+	private final ExecutorService executorService;
 	private final ConfigManager configManager;
 	private final Provider<GameEventManager> sceneTileManager;
 	private final List<Plugin> plugins = new CopyOnWriteArrayList<>();
@@ -113,15 +113,19 @@ public class PluginManager
 	@Inject
 	@VisibleForTesting
 	PluginManager(
+		@Named("safeMode") final boolean safeMode,
 		final EventBus eventBus,
 		final Scheduler scheduler,
+		final ExecutorService executorService,
 		final ConfigManager configManager,
 		final Provider<GameEventManager> sceneTileManager,
 		final Groups groups,
 		final @Named("config") File config)
 	{
+		this.safeMode = safeMode;
 		this.eventBus = eventBus;
 		this.scheduler = scheduler;
+		this.executorService = executorService;
 		this.configManager = configManager;
 		this.sceneTileManager = sceneTileManager;
 		this.groups = groups;
@@ -375,6 +379,14 @@ public class PluginManager
 				continue;
 			}
 
+			if (safeMode && !pluginDescriptor.loadInSafeMode())
+			{
+				log.debug("Disabling {} due to safe mode", clazz);
+				// also disable the plugin from autostarting later
+				configManager.unsetConfiguration(RuneLiteConfig.GROUP_NAME, clazz.getSimpleName().toLowerCase());
+				continue;
+			}
+
 			@SuppressWarnings("unchecked") Class<Plugin> pluginClass = (Class<Plugin>) clazz;
 			graph.addNode(pluginClass);
 		}
@@ -404,20 +416,12 @@ public class PluginManager
 
 		final long start = System.currentTimeMillis();
 
-		// some plugins get stuck on IO, so add some extra threads
-		ExecutorService exec = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 2,
-			new ThreadFactoryBuilder()
-				.setNameFormat("plugin-manager-%d")
-				.build());
-
-		try
-		{
 			List<Plugin> scannedPlugins = new CopyOnWriteArrayList<>();
 			sortedPlugins.forEach(group ->
 			{
 				List<Future<?>> curGroup = new ArrayList<>();
 				group.forEach(pluginClazz ->
-					curGroup.add(exec.submit(() ->
+					curGroup.add(executorService.submit(() ->
 					{
 						Plugin plugin;
 						try
@@ -450,16 +454,6 @@ public class PluginManager
 
 			log.info("Plugin instantiation took {}ms", System.currentTimeMillis() - start);
 			return scannedPlugins;
-		}
-		finally
-		{
-			List<Runnable> unfinishedTasks = exec.shutdownNow();
-			if (!unfinishedTasks.isEmpty())
-			{
-				// This shouldn't happen since we Future#get all tasks submitted to the executor
-				log.warn("Did not complete all update tasks: {}", unfinishedTasks);
-			}
-		}
 	}
 
 	public boolean startPlugin(Plugin plugin) throws PluginInstantiationException
