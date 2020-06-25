@@ -28,7 +28,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 
 plugins {
-    id("com.github.johnrengelman.shadow") version "5.2.0"
+    id("com.github.johnrengelman.shadow") version "6.0.0"
     java
 }
 
@@ -124,15 +124,9 @@ tasks {
 
         inputs.properties(tokens)
 
-        from("src/main/resources") {
-            include("sentry.properties")
-        }
+        from("src/main/resources/")
+        include("**/*.properties")
         into("${buildDir}/resources/main")
-
-        from("src/main/resources/net/runelite/client") {
-            include("open.osrs.properties")
-        }
-        into("${buildDir}/resources/main/net/runelite/client")
 
         filter(ReplaceTokens::class, "tokens" to tokens)
         filteringCharset = "UTF-8"
@@ -162,6 +156,7 @@ tasks {
         group = "openosrs"
 
         classpath = project.sourceSets.main.get().runtimeClasspath
+        enableAssertions = true
         main = "net.runelite.client.RuneLite"
     }
 }
